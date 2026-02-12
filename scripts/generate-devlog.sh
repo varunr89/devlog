@@ -1,8 +1,8 @@
 #!/bin/bash
 set -Eeuo pipefail
 
-# Generate a daily dev log blog post from journal entries and insights.
-# Runs at midnight, uses the PREVIOUS day's date.
+# Generate a daily dev log from journal entries and insights.
+# Works standalone (writes to ~/.claude/devlogs/) or with a blog (writes to blog content dir).
 # Usage: generate-devlog.sh [YYYY-MM-DD]
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -19,7 +19,7 @@ else
     TARGET_DATE=$(date -v-1d '+%Y-%m-%d')
 fi
 
-log "Starting dev log generation for $TARGET_DATE"
+log "Starting dev log generation for $TARGET_DATE (mode: $([ "$BLOG_MODE" = true ] && echo blog || echo standalone))"
 
 # Step 1: Extract insights
 log "Extracting insights..."
@@ -68,11 +68,17 @@ else
 fi
 
 # Step 3: Build the prompt for Claude
-PROMPT="Generate a dev log blog post for $TARGET_DATE.
+if [ "$BLOG_MODE" = true ]; then
+    FRONTMATTER_RULE='- Start with Astro frontmatter (title, date, description, draft: true)'
+else
+    FRONTMATTER_RULE='- Start with YAML frontmatter: title, date'
+fi
+
+PROMPT="Generate a dev log for $TARGET_DATE.
 
 Rules:
 - Output ONLY the markdown file content, nothing else
-- Start with Astro frontmatter (title, date, description, draft: true)
+$FRONTMATTER_RULE
 - Title format: \"Dev Log: Month Day, Year\"
 - Group content by project using ### headers
 - For each project, include the strategic summary (if available) as a paragraph
@@ -101,56 +107,60 @@ $(cat "$INSIGHTS_FILE")
 "
 fi
 
-OUTPUT_FILE="$BLOG_DIR/$CONTENT_PATH/devlog-$TARGET_DATE.md"
+# Step 4: Determine output path and generate
+if [ "$BLOG_MODE" = true ]; then
+    OUTPUT_FILE="$BLOG_DIR/$CONTENT_PATH/devlog-$TARGET_DATE.md"
+    cd "$BLOG_DIR"
+else
+    OUTPUT_FILE="$OUTPUT_DIR/devlog-$TARGET_DATE.md"
+fi
 
-log "Generating blog post with claude..."
-
-# Run claude in print mode from the blog project directory
-cd "$BLOG_DIR"
+log "Generating dev log with claude..."
 echo "$PROMPT" | claude -p --no-session-persistence > "$OUTPUT_FILE" 2>> "$LOG_FILE"
 
 if [ ! -f "$OUTPUT_FILE" ]; then
-    log "ERROR: Blog post was not created"
+    log "ERROR: Dev log was not created"
     exit 1
 fi
 
-log "Blog post created at $OUTPUT_FILE"
+log "Dev log created at $OUTPUT_FILE"
 
-# Step 4: Commit as draft
-cd "$BLOG_DIR"
-git add "$OUTPUT_FILE"
-
-if git diff --cached --quiet; then
-    log "No changes to commit"
-    exit 0
-fi
-
-git commit -m "Add dev log draft for $TARGET_DATE" >> "$LOG_FILE" 2>&1
-log "Committed draft dev log for $TARGET_DATE"
-
-# Step 5: Start dev server and open draft in browser
-SLUG="devlog-$TARGET_DATE"
-DEV_URL="http://localhost:4321/blog/$SLUG"
-
-# Start Astro dev server in background if not already running
-if ! lsof -i :4321 -sTCP:LISTEN > /dev/null 2>&1; then
-    log "Starting Astro dev server..."
+# Step 5: Blog-specific post-processing
+if [ "$BLOG_MODE" = true ]; then
+    # Commit as draft
     cd "$BLOG_DIR"
-    npm run dev > /dev/null 2>&1 &
-    DEV_PID=$!
-    log "Dev server started (PID $DEV_PID)"
-    for i in $(seq 1 30); do
-        if curl -s -o /dev/null "$DEV_URL" 2>/dev/null; then
-            break
-        fi
-        sleep 1
-    done
+    git add "$OUTPUT_FILE"
+
+    if ! git diff --cached --quiet; then
+        git commit -m "Add dev log draft for $TARGET_DATE" >> "$LOG_FILE" 2>&1
+        log "Committed draft dev log for $TARGET_DATE"
+    fi
+
+    # Start dev server and open draft in browser
+    SLUG="devlog-$TARGET_DATE"
+    DEV_URL="http://localhost:4321/blog/$SLUG"
+
+    if ! lsof -i :4321 -sTCP:LISTEN > /dev/null 2>&1; then
+        log "Starting Astro dev server..."
+        cd "$BLOG_DIR"
+        npm run dev > /dev/null 2>&1 &
+        DEV_PID=$!
+        log "Dev server started (PID $DEV_PID)"
+        for i in $(seq 1 30); do
+            if curl -s -o /dev/null "$DEV_URL" 2>/dev/null; then
+                break
+            fi
+            sleep 1
+        done
+    fi
+
+    open "$DEV_URL"
+    log "Opened draft at $DEV_URL"
+    osascript -e "display notification \"Run: publish-devlog $TARGET_DATE\" with title \"Dev Log Ready\" subtitle \"Draft for $TARGET_DATE is ready for review\""
+else
+    # Standalone: just open the file
+    open "$OUTPUT_FILE"
+    osascript -e "display notification \"Dev log saved to $OUTPUT_FILE\" with title \"Dev Log Ready\" subtitle \"$TARGET_DATE\""
 fi
 
-# Open the draft in the default browser
-open "$DEV_URL"
-log "Opened draft at $DEV_URL"
-
-# Send a macOS notification with publish command
-osascript -e "display notification \"Run: publish-devlog $TARGET_DATE\" with title \"Dev Log Ready\" subtitle \"Draft for $TARGET_DATE is ready for review\""
 log "Generation complete for $TARGET_DATE"

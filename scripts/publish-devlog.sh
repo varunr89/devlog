@@ -7,6 +7,11 @@ set -Eeuo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 . "$SCRIPT_DIR/read-settings.sh"
 
+if [ "$BLOG_MODE" = false ]; then
+    echo "Publish requires blog mode. Set blog_dir in ~/.claude/devlog.local.md"
+    exit 1
+fi
+
 POSTS_DIR="$BLOG_DIR/$CONTENT_PATH"
 
 if [ -n "${1:-}" ]; then
