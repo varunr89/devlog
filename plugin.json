@@ -1,0 +1,8 @@
+{
+  "name": "devlog",
+  "version": "0.1.0",
+  "description": "Auto-generate daily dev log blog posts from Claude Code insights and session summaries",
+  "author": {
+    "name": "Varun Ramesh"
+  }
+}

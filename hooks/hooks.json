@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "prompt",
+            "prompt": "Before this conversation is compacted, write a strategic journal entry. Extract the project name from the current working directory (just the last segment, e.g. 'cohouser' not the full path). Write a 1-3 line STRATEGIC summary of what was accomplished -- focus on the 'why' and the area of the product or business this touched, not tactical details like file names or line numbers. Append a single JSON line to ~/.claude/daily-journal/YYYY-MM-DD.jsonl (using today's date, creating the file if needed) with this format: {\"timestamp\": \"<ISO 8601>\", \"project\": \"<name>\", \"summary\": \"<strategic summary>\"}. Use the Bash tool with a single echo+append command. Do not include any other output."
+          }
+        ]
+      }
+    ]
+  }
+}
