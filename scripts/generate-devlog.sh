@@ -138,7 +138,7 @@ if [ "$BLOG_MODE" = true ]; then
 
     # Start dev server and open draft in browser
     SLUG="devlog-$TARGET_DATE"
-    DEV_URL="http://localhost:4321/blog/$SLUG"
+    DEV_URL="http://localhost:4321/devlog/$SLUG"
 
     if ! lsof -i :4321 -sTCP:LISTEN > /dev/null 2>&1; then
         log "Starting Astro dev server..."

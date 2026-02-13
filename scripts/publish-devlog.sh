@@ -48,5 +48,5 @@ git push
 
 echo "Published dev log for $TARGET_DATE"
 if [ -n "$BLOG_URL" ]; then
-    echo "Live at: $BLOG_URL/blog/devlog-$TARGET_DATE"
+    echo "Live at: $BLOG_URL/devlog/devlog-$TARGET_DATE"
 fi

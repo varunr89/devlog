@@ -92,9 +92,14 @@ def main():
     journal_dir = Path.home() / ".claude" / "daily-journal"
 
     args = sys.argv[1:]
+    skip_next = False
     for i, arg in enumerate(args):
+        if skip_next:
+            skip_next = False
+            continue
         if arg == "--journal-dir" and i + 1 < len(args):
             journal_dir = Path(args[i + 1]).expanduser()
+            skip_next = True
         elif not arg.startswith("--"):
             target_date = date.fromisoformat(arg)
 
