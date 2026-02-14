@@ -116,12 +116,16 @@ else
 fi
 
 log "Generating dev log with claude..."
-echo "$PROMPT" | claude -p --no-session-persistence > "$OUTPUT_FILE" 2>> "$LOG_FILE"
+TEMP_FILE=$(mktemp)
+echo "$PROMPT" | claude -p --no-session-persistence > "$TEMP_FILE" 2>> "$LOG_FILE"
 
-if [ ! -f "$OUTPUT_FILE" ]; then
-    log "ERROR: Dev log was not created"
+if [ ! -s "$TEMP_FILE" ]; then
+    log "ERROR: Dev log was not created (empty output)"
+    rm -f "$TEMP_FILE"
     exit 1
 fi
+
+mv "$TEMP_FILE" "$OUTPUT_FILE"
 
 log "Dev log created at $OUTPUT_FILE"
 
