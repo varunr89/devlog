@@ -125,7 +125,33 @@ if [ ! -s "$TEMP_FILE" ]; then
     exit 1
 fi
 
-mv "$TEMP_FILE" "$OUTPUT_FILE"
+# Sanitize: Claude sometimes includes preamble or wraps content in code fences.
+# Extract just the frontmatter-delimited markdown.
+SANITIZED_FILE=$(mktemp)
+
+if head -1 "$TEMP_FILE" | grep -q '^---$'; then
+    # Clean output: starts with frontmatter already
+    cp "$TEMP_FILE" "$SANITIZED_FILE"
+elif grep -qn '^```' "$TEMP_FILE"; then
+    # Content wrapped in a code fence -- extract between first ``` and last ```
+    sed -n '/^```/,/^```/{/^```/d;p;}' "$TEMP_FILE" > "$SANITIZED_FILE"
+elif grep -qn '^---$' "$TEMP_FILE"; then
+    # Preamble before frontmatter -- strip everything before first ---
+    sed -n '/^---$/,$p' "$TEMP_FILE" > "$SANITIZED_FILE"
+else
+    log "WARNING: Output has no recognizable frontmatter, using raw output"
+    cp "$TEMP_FILE" "$SANITIZED_FILE"
+fi
+
+# Final validation: ensure it starts with ---
+if ! head -1 "$SANITIZED_FILE" | grep -q '^---$'; then
+    log "ERROR: Sanitized output does not start with frontmatter"
+    rm -f "$TEMP_FILE" "$SANITIZED_FILE"
+    exit 1
+fi
+
+rm -f "$TEMP_FILE"
+mv "$SANITIZED_FILE" "$OUTPUT_FILE"
 
 log "Dev log created at $OUTPUT_FILE"
 
