@@ -164,29 +164,10 @@ if [ "$BLOG_MODE" = true ]; then
     if ! git diff --cached --quiet; then
         git commit -m "Add dev log draft for $TARGET_DATE" >> "$LOG_FILE" 2>&1
         log "Committed draft dev log for $TARGET_DATE"
+
+        git push >> "$LOG_FILE" 2>&1
+        log "Pushed draft dev log for $TARGET_DATE"
     fi
-
-    # Start dev server and open draft in browser
-    SLUG="devlog-$TARGET_DATE"
-    DEV_URL="http://localhost:4321/devlog/$SLUG"
-
-    if ! lsof -i :4321 -sTCP:LISTEN > /dev/null 2>&1; then
-        log "Starting Astro dev server..."
-        cd "$BLOG_DIR"
-        npm run dev > /dev/null 2>&1 &
-        DEV_PID=$!
-        log "Dev server started (PID $DEV_PID)"
-        for i in $(seq 1 30); do
-            if curl -s -o /dev/null "$DEV_URL" 2>/dev/null; then
-                break
-            fi
-            sleep 1
-        done
-    fi
-
-    open "$DEV_URL"
-    log "Opened draft at $DEV_URL"
-    osascript -e "display notification \"Run: publish-devlog $TARGET_DATE\" with title \"Dev Log Ready\" subtitle \"Draft for $TARGET_DATE is ready for review\""
 else
     # Standalone: just open the file
     open "$OUTPUT_FILE"
